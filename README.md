@@ -34,4 +34,11 @@ scgfx is already at v3.0 as it went from a small C program that could encode a f
 I have written zero lines of code. The extent of my input has been tweaking the instructions displayed when run.
 
 ## Other miscellaneous notes
+
+### SC-88 pages
 Once you send multiple pages to the SC-88, future updates to page 1 (i.e. the normal display data used on the SC-55, and where animation frames are sent to) will not display. To clear page data to allow page 1 to display when updated, just put the unit into standby, then power it back on.
+
+### The 'delta frame compression'
+Delta frame compression reduces the amount of MIDI data required by transmitting only the portions of the display that have changed since the previous frame. Rather than simply sending every changed byte individually, scgfx analyses each frame and chooses the most efficient representation. If a single contiguous delta update is smaller than sending the entire 64-byte framebuffer, it emits a partial DT1 update; otherwise it automatically falls back to a full framebuffer write. Frames that are identical to the previous frame are omitted entirely. This approach minimises MIDI bandwidth while avoiding cases where multiple small SysEx messages would actually be larger than a single full-frame update.
+
+Because unchanged frames are omitted, the original animation timing can no longer be determined from the MIDI data alone. To solve this, scgfx embeds a small metadata block containing the original animation parameters, allowing the exact sequence of frames to be reconstructed during decoding. The metadata is stored as a standard MIDI text event, making it completely inert and ignored by MIDI playback devices.
