@@ -1,0 +1,28 @@
+output "example.mid"
+fps 10
+animation walking "walk/walkframe*.pbm"
+animation numbers "numbers/*.pbm"
+
+at 0 play walking repeat 41
+at 0 text "scgfx is a tool"
+at 360 text "for creating"
+at 720 text "graphics on"
+at 1080 text "the Sound Canvas"
+at 1440 text "It supports"
+at 1800 text "the SC-55, SC-88"
+at 2160 text "and compatibles"
+at 2520 text "as well as"
+at 2880 text "SC-88 pages"
+at 3240 text "plus"
+at 3600 text "an undocumented"
+at 3960 text "'delta frame'"
+at 4320 text "feature"
+at 4680 play numbers repeat 2 fps 1
+at 4680 text "it also includes"
+at 5040 text "a scripting"
+at 5400 text "language to"
+at 5760 text "build animations"
+at 6120 text "and can generate"
+at 6480 text "new MIDI files"
+at 6840 text "or merge data"
+at 7200 text "into existing MIDI files"

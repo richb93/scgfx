@@ -1,0 +1,15 @@
+# Build products
+*.o
+scgfx
+genscroll
+
+# macOS
+.DS_Store
+
+# Logs
+*.log
+
+# Generated folders
+decode_output/
+test_output/
+frames/
