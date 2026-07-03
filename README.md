@@ -32,3 +32,6 @@ It wasn't until quite late into the project that I realised that the Sound Canva
 scgfx is already at v3.0 as it went from a small C program that could encode a folder of images to what it is now, split out into multiple modules.
 
 I have written zero lines of code. The extent of my input has been tweaking the instructions displayed when run.
+
+## Other miscellaneous notes
+Once you send multiple pages to the SC-88, future updates to page 1 (i.e. the normal display data used on the SC-55, and where animation frames are sent to) will not display. To clear page data to allow page 1 to display when updated, just put the unit into standby, then power it back on.
