@@ -38,7 +38,23 @@ I have written zero lines of code. The extent of my input has been tweaking the 
 ### SC-88 pages
 Once you send multiple pages to the SC-88, future updates to page 1 (i.e. the normal display data used on the SC-55, and where animation frames are sent to) will not display. To clear page data to allow page 1 to display when updated, just put the unit into standby, then power it back on.
 
-### The 'delta frame compression'
-Delta frame compression reduces the amount of MIDI data required by transmitting only the portions of the display that have changed since the previous frame. Rather than simply sending every changed byte individually, scgfx analyses each frame and chooses the most efficient representation. If a single contiguous delta update is smaller than sending the entire 64-byte framebuffer, it emits a partial DT1 update; otherwise it automatically falls back to a full framebuffer write. Frames that are identical to the previous frame are omitted entirely. This approach minimises MIDI bandwidth while avoiding cases where multiple small SysEx messages would actually be larger than a single full-frame update.
+### 'Delta' frame updates
+Delta frame updates reduces the amount of MIDI data required by transmitting only the portions of the display that have changed since the previous frame. Rather than simply sending every changed byte individually, scgfx analyses each frame and chooses the most efficient representation. If a single contiguous delta update is smaller than sending the entire 64-byte framebuffer, it emits a partial DT1 update; otherwise it automatically falls back to a full framebuffer write. Frames that are identical to the previous frame are omitted entirely. This approach minimises MIDI bandwidth while avoiding cases where multiple small SysEx messages would actually be larger than a single full-frame update.
 
 Because unchanged frames are omitted, the original animation timing can no longer be determined from the MIDI data alone. To solve this, scgfx embeds a small metadata block containing the original animation parameters, allowing the exact sequence of frames to be reconstructed during decoding. The metadata is stored as a standard MIDI text event, making it completely inert and ignored by MIDI playback devices.
+
+This functionality is not documented by Roland anywhere and was discovered during testing - it has been tested on the SC-88VL, but does not work on the SC-55 or SC55mkII.
+
+## Device compatibility matrix
+
+| Device | Supports display data? | Supports page data? | Supports 'delta display updates'? |
+|--------|:-----------------------:|:-------------------:|:---------------------------------:|
+| Roland SC-33 | N | N | N |
+| Roland SC-55 | Y | N | N |
+| Roland SC-55 mkII | Y | N | N |
+| Roland SC-88VL | Y | Y | Y |
+| YAMAHA MU15 | Y* | N | N |
+| YAMAHA MU80 | Y | N | N |
+| YAMAHA MU100R | Y* | N | N |
+
+\* Device must be in **TG300B mode**.
