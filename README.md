@@ -8,7 +8,7 @@ This was then expanded in 1994 with the SC-88 to allow 10 different images to be
 
 Whilst creating this tool, I also discovered a hidden image transfer mode on the SC-88, which allows for 'delta' frame updates to be sent to the device - only pixels that are changed are transmitted instead of transmitting full frames.
 
-# Features
+## Features
 
 * Encoding and decoding of graphics data to/from MIDI/PBM/TXT
 * Ability to generate MIDI files with graphics data only
@@ -18,8 +18,12 @@ Whilst creating this tool, I also discovered a hidden image transfer mode on the
 * Delta encoding (SC-88+ only) - sends only changed pixels rather than full frames, which can greatly reduce file size. scgfx also does a comparison to automatically determine the optimal method to use.
 * Simple command line operation
 * Additionally, a full scripting language that allows for creation of advanced projects which can include custom defined graphics, loops, videos, and text tracks.
+* Finally, a small tool called genscroll is included that generates scrolling text image frames. If run interactively it will ask for an input. Alternatively, the string to encode can be specified on the command line. By default text will be rendered scrolling horizontally one pixel at a time. The command line switch -step <x> can be used to change to to scroll <x> pixels each frame. -speed does the same thing.
 
-# The big dirty secret
+## Usage
+Build it. Run it - the instructions are self explanatory. Samples are included.
+
+## The big dirty secret
 
 I didn't write any of this. Other than this readme, scgfx is the result of me discussing and testing out various things with ChatGPT. This was created merely by providing ChatGPT with a copy of the 'Star Games' demo MIDI file that Roland provided with the SC-55 - this was converted to CSV with the excellent csvmidi tool and then uploaded to ChatGPT. After running some tests to determine how each pixel is addressed, a basic proof of concept was created.
 

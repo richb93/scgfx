@@ -155,6 +155,17 @@ static int parse_animation_options(char **p,
     return 1;
 }
 
+
+static int has_glob_magic(const char *s) {
+    while (*s) {
+        if (*s == '*' || *s == '?' || *s == '[')
+            return 1;
+        s++;
+    }
+
+    return 0;
+}
+
 int page_number_to_addr(int page, uint8_t *a0, uint8_t *a1, uint8_t *a2) {
     /*
         SC-88 display page dot data.
@@ -210,23 +221,49 @@ int build_command(int argc, char **argv) {
         fprintf(stderr,
             "Usage:\n"
             "  scgfx compile [-v|-vv|-verbose] project.scg\n\n"
-            "Example project:\n"
-            "  output \"out.mid\"\n"
-            "  input  \"song.mid\"       # optional; Format 0 only\n"
+
+            "Script format (.scg):\n\n"
+
+            "Project settings:\n"
+            "  output \"out.mid\"                 Set output MIDI filename\n"
+            "  input \"song.mid\"                 Optional Format 0 input MIDI\n"
+            "  fps N                           Set project animation FPS\n"
+            "  delta on|off                    Enable/disable SC-88 delta writes\n"
+            "  songlength TICKS                Optional end tick for looped animations\n\n"
+
+            "Resources:\n"
+            "  page N \"image.pbm\"             Load one image into SC-88 page N\n"
+            "  page N \"frames/*.pbm\"          Load wildcard matches into pages N-10\n"
+            "                                  Fails if too many files match\n"
+            "  animation NAME \"frames/*.pbm\"  Define named image animation\n"
+            "  pageanim NAME 1-10              Define named page animation\n\n"
+
+            "Timeline:\n"
+            "  at TICK text \"message\"         Display up to 32 ASCII chars\n"
+            "  at TICK page N                  Display page 0-10\n"
+            "  at TICK time N                  Display time raw value 0-15\n"
+            "                                  Also accepts 2.88s or 1500ms\n"
+            "                                  1 unit = 0.48s; default 6 = 2.88s\n"
+            "  at TICK image \"image.pbm\"      Immediate image write\n"
+            "  at TICK animate pages 1-6       Page animation using project FPS\n"
+            "  at TICK animate pages 1-6 fps N repeat N\n"
+            "  at TICK animate images \"frames/*.pbm\"\n"
+            "  at TICK animate images \"frames/*.pbm\" fps N repeat N\n"
+            "  at TICK play NAME [fps N] [repeat N|loop]\n\n"
+
+            "Example:\n"
+            "  output \"demo.mid\"\n"
+            "  input \"song.mid\"\n"
             "  fps 10\n"
             "  delta on\n"
-            "  page 1 \"page1.pbm\"     # preload page image at tick 0\n"
-            "  page 2 \"page2.txt\"\n"
-            "  at 0 text \"HELLO\"\n"
-            "  at 0 page 0             # normal bar display\n"
-            "  at 480 page 1           # display preloaded page 1\n"
-            "  at 480 time 2.88s       # same as raw value 6\n"
-            "  at 960 image \"frame0001.pbm\"   # immediate image write\n"
-            "  animation spinner \"frames/frame*.pbm\"\n"
-            "  pageanim intro 1-6\n"
-            "  at 1200 animate pages 1-6 repeat 15\n"
-            "  at 2000 animate images \"frames/frame*.pbm\"\n"
-            "  at 3000 play spinner fps 20 repeat 3\n");
+            "  page 1 \"logo.pbm\"\n"
+            "  page 2 \"intro/*.pbm\"\n"
+            "  animation spinner \"spinner/*.pbm\"\n"
+            "  pageanim intro 2-10\n"
+            "  at 0 page 1\n"
+            "  at 0 text \"SCGFX Demo\"\n"
+            "  at 480 play intro\n"
+            "  at 2000 play spinner repeat 3\n");
         return 1;
     }
 
@@ -257,6 +294,7 @@ int build_command(int argc, char **argv) {
     typedef struct {
         int page;
         char filename[1024];
+        int line_no;
     } PageDef;
 
     typedef struct {
@@ -442,23 +480,89 @@ int build_command(int argc, char **argv) {
                 return 1;
             }
 
-            if (page_count == page_cap) {
-                size_t new_cap = page_cap ? page_cap * 2 : 16;
-                PageDef *new_pages = (PageDef *)realloc(pages, new_cap * sizeof(PageDef));
-                if (!new_pages) {
+            if (strpbrk(filename, "*?[") != NULL) {
+                glob_t matches;
+                int glob_result;
+                int available_pages = 10 - (int)page_ul + 1;
+
+                memset(&matches, 0, sizeof(matches));
+                glob_result = glob(filename, 0, NULL, &matches);
+
+                if (glob_result != 0 || matches.gl_pathc == 0) {
+                    fprintf(stderr,
+                            "%s:%d: page wildcard matched no files: %s\n",
+                            project_file, line_no, filename);
+                    globfree(&matches);
                     fclose(f);
                     free(cmds);
                     free(pages);
+                    free(anims);
                     return 1;
                 }
-                pages = new_pages;
-                page_cap = new_cap;
-            }
 
-            pages[page_count].page = (int)page_ul;
-            strncpy(pages[page_count].filename, filename, sizeof(pages[page_count].filename) - 1);
-            pages[page_count].filename[sizeof(pages[page_count].filename) - 1] = 0;
-            page_count++;
+                if ((int)matches.gl_pathc > available_pages) {
+                    fprintf(stderr,
+                            "%s:%d: page wildcard \"%s\" matched %zu images, "
+                            "but only %d page%s available from page %lu to 10.\n",
+                            project_file, line_no, filename, matches.gl_pathc,
+                            available_pages, available_pages == 1 ? " is" : "s are",
+                            page_ul);
+                    fprintf(stderr,
+                            "Reduce the number of images or start at an earlier page.\n");
+                    globfree(&matches);
+                    fclose(f);
+                    free(cmds);
+                    free(pages);
+                    free(anims);
+                    return 1;
+                }
+
+                for (size_t gi = 0; gi < matches.gl_pathc; gi++) {
+                    if (page_count == page_cap) {
+                        size_t new_cap = page_cap ? page_cap * 2 : 16;
+                        PageDef *new_pages = (PageDef *)realloc(pages, new_cap * sizeof(PageDef));
+                        if (!new_pages) {
+                            globfree(&matches);
+                            fclose(f);
+                            free(cmds);
+                            free(pages);
+                            free(anims);
+                            return 1;
+                        }
+                        pages = new_pages;
+                        page_cap = new_cap;
+                    }
+
+                    pages[page_count].page = (int)page_ul + (int)gi;
+                    pages[page_count].line_no = line_no;
+                    strncpy(pages[page_count].filename, matches.gl_pathv[gi],
+                            sizeof(pages[page_count].filename) - 1);
+                    pages[page_count].filename[sizeof(pages[page_count].filename) - 1] = 0;
+                    page_count++;
+                }
+
+                globfree(&matches);
+            } else {
+                if (page_count == page_cap) {
+                    size_t new_cap = page_cap ? page_cap * 2 : 16;
+                    PageDef *new_pages = (PageDef *)realloc(pages, new_cap * sizeof(PageDef));
+                    if (!new_pages) {
+                        fclose(f);
+                        free(cmds);
+                        free(pages);
+                        free(anims);
+                        return 1;
+                    }
+                    pages = new_pages;
+                    page_cap = new_cap;
+                }
+
+                pages[page_count].page = (int)page_ul;
+                pages[page_count].line_no = line_no;
+                strncpy(pages[page_count].filename, filename, sizeof(pages[page_count].filename) - 1);
+                pages[page_count].filename[sizeof(pages[page_count].filename) - 1] = 0;
+                page_count++;
+            }
         } else if (strncmp(p, "at", 2) == 0 && isspace((unsigned char)p[2])) {
             p = trim_left(p + 2);
             char *endp = NULL;
@@ -715,47 +819,135 @@ int build_command(int argc, char **argv) {
 
         These are definitions, not timed display events. A later timed command
         like "at 480 page 2" selects which preloaded page is shown.
+
+        A page definition can be a single file:
+
+            page 3 "logo.pbm"
+
+        or a wildcard:
+
+            page 3 "intro/frame*.pbm"
+
+        Wildcard matches are loaded into consecutive pages starting at the
+        supplied page number. The match count must fit within pages N-10.
     */
     for (size_t i = 0; i < page_count; i++) {
-        uint8_t pixels[16][16], fb[64];
-        uint8_t a0, a1, a2;
-        uint8_t *ev = NULL;
-        uint32_t evlen = 0;
+        glob_t page_matches;
+        const char **filenames = NULL;
+        const char *single_filename = NULL;
+        size_t file_count = 0;
+        int globbed = has_glob_magic(pages[i].filename);
 
-        if (!page_number_to_addr(pages[i].page, &a0, &a1, &a2)) {
-            fprintf(stderr, "%s: page definition must use page 1-10\n", project_file);
+        if (pages[i].page < 1 || pages[i].page > 10) {
+            fprintf(stderr, "%s:%d: page definition must use page 1-10\n",
+                    project_file, pages[i].line_no);
             eventlist_free(&events);
             free(cmds);
             free(pages);
+            free(anims);
             return 1;
         }
 
-        if (verbose)
-            printf("Tick 0: preload page %d from %s -> DT1 10 %02X %02X\n",
-                   pages[i].page, pages[i].filename, a1, a2);
-        trace_printf("Tick 0: preload page %d from %s -> DT1 10 %02X %02X len=64\n",
-                     pages[i].page, pages[i].filename, a1, a2);
+        memset(&page_matches, 0, sizeof(page_matches));
 
-        if (!load_frame(pages[i].filename, pixels)) {
-            eventlist_free(&events);
-            free(cmds);
-            free(pages);
-            return 1;
+        if (globbed) {
+            int glob_result = glob(pages[i].filename, 0, NULL, &page_matches);
+
+            if (glob_result != 0 || page_matches.gl_pathc == 0) {
+                fprintf(stderr, "%s:%d: page wildcard matched no files: %s\n",
+                        project_file, pages[i].line_no, pages[i].filename);
+                globfree(&page_matches);
+                eventlist_free(&events);
+                free(cmds);
+                free(pages);
+                free(anims);
+                return 1;
+            }
+
+            file_count = page_matches.gl_pathc;
+            filenames = (const char **)page_matches.gl_pathv;
+
+            if ((int)file_count > (11 - pages[i].page)) {
+                fprintf(stderr,
+                        "%s:%d: page wildcard \"%s\" matched %zu file%s, "
+                        "but only %d page%s available from page %d to page 10\n",
+                        project_file,
+                        pages[i].line_no,
+                        pages[i].filename,
+                        file_count,
+                        file_count == 1 ? "" : "s",
+                        11 - pages[i].page,
+                        (11 - pages[i].page) == 1 ? "" : "s",
+                        pages[i].page);
+                globfree(&page_matches);
+                eventlist_free(&events);
+                free(cmds);
+                free(pages);
+                free(anims);
+                return 1;
+            }
+        } else {
+            single_filename = pages[i].filename;
+            filenames = &single_filename;
+            file_count = 1;
         }
 
-        build_framebuffer(pixels, fb);
+        for (size_t mi = 0; mi < file_count; mi++) {
+            uint8_t pixels[16][16], fb[64];
+            uint8_t a0, a1, a2;
+            uint8_t *ev = NULL;
+            uint32_t evlen = 0;
+            int page_number = pages[i].page + (int)mi;
 
-        ev = make_dt1_event_data_addr(a0, a1, a2, fb, 64, &evlen);
+            if (!page_number_to_addr(page_number, &a0, &a1, &a2)) {
+                fprintf(stderr, "%s:%d: page definition must use page 1-10\n",
+                        project_file, pages[i].line_no);
+                if (globbed)
+                    globfree(&page_matches);
+                eventlist_free(&events);
+                free(cmds);
+                free(pages);
+                free(anims);
+                return 1;
+            }
 
-        if (!ev || !eventlist_add_take(&events, 0, ev, evlen, order++)) {
-            free(ev);
-            eventlist_free(&events);
-            free(cmds);
-            free(pages);
-            return 1;
+            if (verbose)
+                printf("Tick 0: Page %d <- %s -> DT1 10 %02X %02X\n",
+                       page_number, filenames[mi], a1, a2);
+
+            trace_printf("Tick 0: preload page %d from %s -> DT1 10 %02X %02X len=64\n",
+                         page_number, filenames[mi], a1, a2);
+
+            if (!load_frame(filenames[mi], pixels)) {
+                if (globbed)
+                    globfree(&page_matches);
+                eventlist_free(&events);
+                free(cmds);
+                free(pages);
+                free(anims);
+                return 1;
+            }
+
+            build_framebuffer(pixels, fb);
+
+            ev = make_dt1_event_data_addr(a0, a1, a2, fb, 64, &evlen);
+
+            if (!ev || !eventlist_add_take(&events, 0, ev, evlen, order++)) {
+                free(ev);
+                if (globbed)
+                    globfree(&page_matches);
+                eventlist_free(&events);
+                free(cmds);
+                free(pages);
+                free(anims);
+                return 1;
+            }
+
+            inserted++;
         }
 
-        inserted++;
+        if (globbed)
+            globfree(&page_matches);
     }
 
     for (size_t i = 0; i < cmd_count; i++) {

@@ -1,0 +1,8 @@
+output "sc88_page_demo.mid"
+fps 1
+
+page 1 "numbers/*.pbm"
+pageanim numbers 1-10
+
+at 0 text  "SC-88 page demo"
+at 0 play numbers repeat 2
