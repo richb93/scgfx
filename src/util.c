@@ -3,7 +3,7 @@
 void usage(void) {
     fprintf(stderr,
         "scgfx - a tool for encoding/decoding Roland Sound Canvas graphics data\n"
-        "Created by Richard Birch (RichB93) with the help of ChatGPT.\n"
+        "Created by richb93 with the help of ChatGPT.\n"
         "v%s - %s\n\n"
         "Usage:\n\n"
         "  To encode a single image or animation to a new MIDI file:\n"

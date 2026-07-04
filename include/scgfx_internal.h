@@ -13,8 +13,8 @@
 #define MKDIR(path) mkdir(path, 0755)
 #endif
 
-#define SCGFX_VERSION "3.0-alpha"
-#define SCGFX_DATE    "24th June 2026"
+#define SCGFX_VERSION "3.1"
+#define SCGFX_DATE    "4th July 2026"
 #define TPQN 96
 #define DEFAULT_FPS 10
 #define DELTA_MERGE_GAP 11
