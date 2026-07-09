@@ -1,5 +1,7 @@
 # scgfx
 
+![scgfx](examples/demo.gif)
+
 scgfx is a tool for working with Roland Sound Canvas graphics data.
 
 Introduced with the original SC-55 in 1991, Roland defined 'display data' via system exclusive messages (SysEx), that allows for 16x16 images to be displayed on the Sound Canvas display. In addition, text could also be displayed in the instrument name area of the display.
