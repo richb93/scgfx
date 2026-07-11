@@ -27,11 +27,11 @@ Build it. Run it - the instructions are self explanatory. Samples are included.
 
 ## The big dirty secret
 
-I didn't write any of this. Other than this readme, scgfx is the result of me discussing and testing out various things with ChatGPT. This was created merely by providing ChatGPT with a copy of the 'Star Games' demo MIDI file that Roland provided with the SC-55 - this was converted to CSV with the excellent csvmidi tool and then uploaded to ChatGPT. After running some tests to determine how each pixel is addressed, a basic proof of concept was created.
+I didn't write any code. Other than this readme, scgfx is the result of me discussing and testing out various things with ChatGPT. This was created merely by providing ChatGPT with a copy of the 'Star Games' demo MIDI file that Roland provided with the SC-55 - this was converted to CSV with the excellent csvmidi tool and then uploaded to ChatGPT. After running some tests to determine how each pixel is addressed, a basic proof of concept was created.
 
 It wasn't until quite late into the project that I realised that the Sound Canvas manuals actually described the display data SysEx, as well as the text display. Finally, the page data information was implemented based on the information provided in the SC-88 manual.
 
-scgfx is already at v3.0 as it went from a small C program that could encode a folder of images to what it is now, split out into multiple modules.
+scgfx is already at v3.1 as it went from a small C program that could encode a folder of images to what it is now, split out into multiple modules.
 
 I have written zero lines of code. The extent of my input has been tweaking the instructions displayed when run.
 
@@ -49,7 +49,7 @@ This functionality is not documented by Roland anywhere and was discovered durin
 
 ## Device compatibility matrix
 
-| Device | Supports display data? | Supports page data? | Supports 'delta display updates'? |
+| Device | Supports display data? | Supports page data? | Supports 'delta' frames? |
 |--------|:-----------------------:|:-------------------:|:---------------------------------:|
 | Roland SC-33 | N | N | N |
 | Roland SC-55 | Y | N | N |
